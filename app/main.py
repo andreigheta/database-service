@@ -16,10 +16,9 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
     description="Persistence layer for SmileSchedule appointments, patients and availability slots.",
 )
 
 app.include_router(router)
-

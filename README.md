@@ -16,9 +16,11 @@ This repository currently covers roughly the first half of the service:
 - initial schema migration with Alembic
 - CRUD endpoints for patients and availability slots
 - appointment creation and cancellation flow
+- filtered and paginated read endpoints for patients, slots and appointments
+- individual record lookup endpoints for patients, slots and appointments
 - local stack with PostgreSQL and `pgAdmin`
 
-Remaining work can extend this foundation with authentication-aware access control, richer validation, filtering, pagination, automated tests and Swarm deployment descriptors.
+Remaining work can extend this foundation with authentication-aware access control, richer validation, automated tests and Swarm deployment descriptors.
 
 ## Project structure
 
@@ -83,8 +85,19 @@ curl -X POST http://localhost:8000/appointments \
   }'
 ```
 
+Filter appointments by patient and status:
+
+```bash
+curl "http://localhost:8000/appointments?patient_id=1&status=scheduled&limit=20"
+```
+
+Fetch a specific slot:
+
+```bash
+curl http://localhost:8000/slots/1
+```
+
 ## Notes
 
 - The service uses synchronous HTTP and a relational schema, which fits the SmileSchedule architecture described in the project PDF.
 - `database-service` is intentionally focused on persistence concerns so it can be integrated later behind Kong together with the other SmileSchedule services.
-
