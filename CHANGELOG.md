@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Database service endpoint to update availability slots (`PATCH /slots/{id}`).
+- Database service endpoint to delete availability slots (`DELETE /slots/{id}`).
+- Validation and conflict handling for slot updates (time range checks and overlap prevention).
+- Safety checks preventing deletion of reserved slots or slots linked to appointments.
+
 ## [0.2.0]
 
 ### Added

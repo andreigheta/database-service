@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.db.models import AppointmentStatus
 
@@ -26,6 +26,19 @@ class AvailabilitySlotCreate(BaseModel):
     start_time: datetime
     end_time: datetime
     notes: str | None = Field(default=None, max_length=1000)
+
+
+class AvailabilitySlotUpdate(BaseModel):
+    dentist_name: str | None = Field(default=None, min_length=3, max_length=120)
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_payload_has_data(self) -> "AvailabilitySlotUpdate":
+        if not self.model_fields_set:
+            raise ValueError("at least one field must be provided")
+        return self
 
 
 class AvailabilitySlotRead(BaseModel):

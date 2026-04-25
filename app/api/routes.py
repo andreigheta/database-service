@@ -92,6 +92,53 @@ def get_slot(slot_id: int, db: Session = Depends(get_db)) -> schemas.Availabilit
     return slot
 
 
+@router.patch("/slots/{slot_id}", response_model=schemas.AvailabilitySlotRead, tags=["slots"])
+def update_slot(
+    slot_id: int,
+    payload: schemas.AvailabilitySlotUpdate,
+    db: Session = Depends(get_db),
+) -> schemas.AvailabilitySlotRead:
+    slot, result = crud.update_slot(db, slot_id, payload.model_dump(exclude_unset=True, mode="json"))
+
+    if result == "not_found":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="slot not found")
+    if result == "reserved":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="reserved slots cannot be modified",
+        )
+    if result == "invalid_range":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end_time must be later than start_time",
+        )
+    if result == "overlap":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="slot overlaps an existing slot for this dentist",
+        )
+
+    return slot
+
+
+@router.delete("/slots/{slot_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["slots"])
+def delete_slot(slot_id: int, db: Session = Depends(get_db)) -> None:
+    result = crud.delete_slot(db, slot_id)
+
+    if result == "not_found":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="slot not found")
+    if result == "reserved":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="reserved slots cannot be deleted",
+        )
+    if result == "has_appointments":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="slot cannot be deleted because appointments exist for it",
+        )
+
+
 @router.post(
     "/slots",
     response_model=schemas.AvailabilitySlotRead,

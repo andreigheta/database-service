@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -6,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Appointment, AppointmentStatus, AvailabilitySlot, Patient
 from app.db.schemas import AppointmentCreate, AvailabilitySlotCreate, PatientCreate
+
+SlotUpdateStatus = Literal["updated", "not_found", "overlap", "reserved", "invalid_range"]
+SlotDeleteStatus = Literal["deleted", "not_found", "reserved", "has_appointments"]
 
 
 def list_patients(
@@ -103,6 +107,73 @@ def create_slot(db: Session, payload: AvailabilitySlotCreate) -> AvailabilitySlo
     db.commit()
     db.refresh(slot)
     return slot
+
+
+def update_slot(
+    db: Session,
+    slot_id: int,
+    payload: dict,
+) -> tuple[AvailabilitySlot | None, SlotUpdateStatus]:
+    slot = db.get(AvailabilitySlot, slot_id)
+    if slot is None:
+        return None, "not_found"
+    if slot.is_reserved:
+        return None, "reserved"
+
+    new_dentist_name = payload.get("dentist_name", slot.dentist_name)
+    new_start_time = payload.get("start_time", slot.start_time)
+    new_end_time = payload.get("end_time", slot.end_time)
+
+    if new_end_time <= new_start_time:
+        return None, "invalid_range"
+
+    overlapping_slot = db.scalar(
+        select(AvailabilitySlot).where(
+            and_(
+                AvailabilitySlot.id != slot_id,
+                AvailabilitySlot.dentist_name == new_dentist_name,
+                or_(
+                    and_(
+                        AvailabilitySlot.start_time <= new_start_time,
+                        AvailabilitySlot.end_time > new_start_time,
+                    ),
+                    and_(
+                        AvailabilitySlot.start_time < new_end_time,
+                        AvailabilitySlot.end_time >= new_end_time,
+                    ),
+                    and_(
+                        AvailabilitySlot.start_time >= new_start_time,
+                        AvailabilitySlot.end_time <= new_end_time,
+                    ),
+                ),
+            )
+        )
+    )
+    if overlapping_slot is not None:
+        return None, "overlap"
+
+    for field_name, value in payload.items():
+        setattr(slot, field_name, value)
+
+    db.commit()
+    db.refresh(slot)
+    return slot, "updated"
+
+
+def delete_slot(db: Session, slot_id: int) -> SlotDeleteStatus:
+    slot = db.get(AvailabilitySlot, slot_id)
+    if slot is None:
+        return "not_found"
+    if slot.is_reserved:
+        return "reserved"
+
+    existing_appointment = db.scalar(select(Appointment.id).where(Appointment.slot_id == slot_id))
+    if existing_appointment is not None:
+        return "has_appointments"
+
+    db.delete(slot)
+    db.commit()
+    return "deleted"
 
 
 def list_appointments(
