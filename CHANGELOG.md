@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+
+- Database readiness endpoint at `/health/ready` that verifies the PostgreSQL connection before reporting the service as ready.
+
+### Changed
+
+- Bumped the `database-service` API version to `0.3.0`.
+
 ## [0.2.0]
 
 ### Added

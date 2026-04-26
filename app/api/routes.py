@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db import crud, schemas
@@ -17,6 +18,19 @@ PaginationOffset = Annotated[int, Query(ge=0)]
 @router.get("/health", tags=["health"])
 def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@router.get("/health/ready", tags=["health"])
+def readiness_check(db: Session = Depends(get_db)) -> dict[str, str]:
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="database unavailable",
+        ) from exc
+
+    return {"status": "ready", "database": "ok"}
 
 
 @router.get("/patients", response_model=list[schemas.PatientRead], tags=["patients"])
