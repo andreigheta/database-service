@@ -4,6 +4,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 revision: str = "0001_initial_schema"
@@ -12,7 +13,12 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-appointment_status = sa.Enum("scheduled", "cancelled", name="appointmentstatus")
+appointment_status = postgresql.ENUM(
+    "scheduled",
+    "cancelled",
+    name="appointmentstatus",
+    create_type=False,
+)
 
 
 def upgrade() -> None:
