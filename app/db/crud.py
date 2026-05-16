@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -82,20 +82,8 @@ def create_slot(db: Session, payload: AvailabilitySlotCreate) -> AvailabilitySlo
         select(AvailabilitySlot).where(
             and_(
                 AvailabilitySlot.dentist_name == payload.dentist_name,
-                or_(
-                    and_(
-                        AvailabilitySlot.start_time <= payload.start_time,
-                        AvailabilitySlot.end_time > payload.start_time,
-                    ),
-                    and_(
-                        AvailabilitySlot.start_time < payload.end_time,
-                        AvailabilitySlot.end_time >= payload.end_time,
-                    ),
-                    and_(
-                        AvailabilitySlot.start_time >= payload.start_time,
-                        AvailabilitySlot.end_time <= payload.end_time,
-                    ),
-                ),
+                AvailabilitySlot.start_time < payload.end_time,
+                AvailabilitySlot.end_time > payload.start_time,
             )
         )
     )
@@ -132,20 +120,8 @@ def update_slot(
             and_(
                 AvailabilitySlot.id != slot_id,
                 AvailabilitySlot.dentist_name == new_dentist_name,
-                or_(
-                    and_(
-                        AvailabilitySlot.start_time <= new_start_time,
-                        AvailabilitySlot.end_time > new_start_time,
-                    ),
-                    and_(
-                        AvailabilitySlot.start_time < new_end_time,
-                        AvailabilitySlot.end_time >= new_end_time,
-                    ),
-                    and_(
-                        AvailabilitySlot.start_time >= new_start_time,
-                        AvailabilitySlot.end_time <= new_end_time,
-                    ),
-                ),
+                AvailabilitySlot.start_time < new_end_time,
+                AvailabilitySlot.end_time > new_start_time,
             )
         )
     )
@@ -210,14 +186,31 @@ def get_appointment(db: Session, appointment_id: int) -> Appointment | None:
 
 def create_appointment(db: Session, payload: AppointmentCreate) -> Appointment | None:
     patient = db.get(Patient, payload.patient_id)
-    slot = db.get(AvailabilitySlot, payload.slot_id)
+    slot = db.scalar(
+        select(AvailabilitySlot)
+        .where(AvailabilitySlot.id == payload.slot_id)
+        .with_for_update()
+    )
     if patient is None or slot is None or slot.is_reserved:
+        return None
+
+    scheduled_appointment = db.scalar(
+        select(Appointment.id).where(
+            Appointment.slot_id == payload.slot_id,
+            Appointment.status == AppointmentStatus.scheduled,
+        )
+    )
+    if scheduled_appointment is not None:
         return None
 
     appointment = Appointment(**payload.model_dump())
     slot.is_reserved = True
     db.add(appointment)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return None
     db.refresh(appointment)
     return appointment
 
@@ -226,6 +219,12 @@ def cancel_appointment(db: Session, appointment_id: int) -> Appointment | None:
     appointment = db.get(Appointment, appointment_id)
     if appointment is None:
         return None
+    if appointment.status == AppointmentStatus.cancelled:
+        if appointment.slot.is_reserved:
+            appointment.slot.is_reserved = False
+            db.commit()
+            db.refresh(appointment)
+        return appointment
 
     appointment.status = AppointmentStatus.cancelled
     appointment.slot.is_reserved = False

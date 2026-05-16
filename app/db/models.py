@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, String, Text
@@ -12,6 +12,10 @@ class AppointmentStatus(str, Enum):
     cancelled = "cancelled"
 
 
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 class Patient(Base):
     __tablename__ = "patients"
 
@@ -19,7 +23,7 @@ class Patient(Base):
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     phone: Mapped[str] = mapped_column(String(30), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     appointments: Mapped[list["Appointment"]] = relationship(back_populates="patient")
 
@@ -33,7 +37,7 @@ class AvailabilitySlot(Base):
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_reserved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     appointments: Mapped[list["Appointment"]] = relationship(back_populates="slot")
 
@@ -43,14 +47,14 @@ class Appointment(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
-    slot_id: Mapped[int] = mapped_column(ForeignKey("availability_slots.id"), nullable=False, unique=True, index=True)
+    slot_id: Mapped[int] = mapped_column(ForeignKey("availability_slots.id"), nullable=False, index=True)
     reason: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[AppointmentStatus] = mapped_column(
         SqlEnum(AppointmentStatus),
         default=AppointmentStatus.scheduled,
         nullable=False,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     patient: Mapped[Patient] = relationship(back_populates="appointments")
     slot: Mapped[AvailabilitySlot] = relationship(back_populates="appointments")

@@ -112,7 +112,7 @@ def update_slot(
     payload: schemas.AvailabilitySlotUpdate,
     db: Session = Depends(get_db),
 ) -> schemas.AvailabilitySlotRead:
-    slot, result = crud.update_slot(db, slot_id, payload.model_dump(exclude_unset=True, mode="json"))
+    slot, result = crud.update_slot(db, slot_id, payload.model_dump(exclude_unset=True))
 
     if result == "not_found":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="slot not found")
